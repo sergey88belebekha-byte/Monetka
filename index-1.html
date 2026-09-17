@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Бросок монетки</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: linear-gradient(165deg, #0c0a14 0%, #15122a 45%, #1a1f38 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #eee;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .header {
+      position: absolute;
+      top: 14px;
+      text-align: center;
+      width: 100%;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    .header h1 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #e8d5a0;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+      letter-spacing: 0.4px;
+    }
+
+    .header p {
+      font-size: 0.78rem;
+      color: #7a7a8a;
+      margin-top: 2px;
+    }
+
+    /* ===== СЦЕНА ===== */
+    .scene {
+      position: relative;
+      width: 360px;
+      height: 360px;
+      margin-top: 24px;
+      perspective: 1000px;
+    }
+
+    /* ===== РЕАЛИСТИЧНЫЙ ДЕРЕВЯННЫЙ СТОЛ ===== */
+    .table {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 310px;
+      height: 310px;
+      border-radius: 50%;
+      background:
+        radial-gradient(ellipse at 42% 38%, #5c3d2e 0%, #3e2a1f 40%, #2a1b14 75%, #1a100c 100%);
+      box-shadow:
+        0 0 0 9px #4a3226,
+        0 0 0 13px #2c1c14,
+        0 0 0 15px #1a100c,
+        0 22px 50px rgba(0,0,0,0.8),
+        inset 0 0 60px rgba(0,0,0,0.5),
+        inset 0 8px 20px rgba(255,220,180,0.04);
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    /* Текстура дерева — кольца + волокна */
+    .table::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        repeating-radial-gradient(
+          ellipse at 48% 52%,
+          transparent 0px,
+          transparent 11px,
+          rgba(0,0,0,0.06) 11px,
+          rgba(0,0,0,0.06) 13px
+        ),
+        repeating-linear-gradient(
+          98deg,
+          transparent 0px,
+          transparent 5px,
+          rgba(0,0,0,0.035) 5px,
+          rgba(0,0,0,0.035) 6px
+        );
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    /* Блик / освещение на столе */
+    .table::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(
+        ellipse at 40% 30%,
+        rgba(255,230,190,0.07) 0%,
+        transparent 55%
+      );
+      pointer-events: none;
+    }
+
+    /* Эмблема Blum */
+    .blum-emblem {
+      position: absolute;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0.78;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .blum-logo {
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #FF671F;
+      letter-spacing: 2.2px;
+      text-transform: lowercase;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    }
+
+    .blum-sub {
+      font-size: 0.5rem;
+      color: #a88860;
+      letter-spacing: 1.6px;
+      margin-top: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ===== СТАРИННАЯ РЕАЛИСТИЧНАЯ МОНЕТА ===== */
+    .coin-wrapper {
+      position: absolute;
+      left: 50%;
+      top: 18%;
+      width: 128px;
+      height: 128px;
+      margin-left: -64px;
+      margin-top: -64px;
+      transform-style: preserve-3d;
+      z-index: 10;
+      transform: translateY(-200px) scale(0.8);
+    }
+
+    .coin {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+
+    .coin-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Аверс — потёртое старое золото */
+    .face-avers {
+      background:
+        radial-gradient(circle at 30% 25%, #f5e6b8 0%, #d4b84a 22%, #b8922a 48%, #8f6e18 72%, #5c4510 100%);
+      transform: translateZ(6.5px);
+      box-shadow:
+        inset 0 0 30px rgba(0,0,0,0.35),
+        inset 0 10px 18px rgba(255,255,255,0.12),
+        inset 0 -6px 12px rgba(0,0,0,0.2);
+      border: 2.5px solid #6b5220;
+    }
+
+    /* Реверс */
+    .face-revers {
+      background:
+        radial-gradient(circle at 30% 25%, #ecdba8 0%, #c9a83a 22%, #a67c20 48%, #7a5c14 72%, #4a3810 100%);
+      transform: rotateY(180deg) translateZ(6.5px);
+      box-shadow:
+        inset 0 0 30px rgba(0,0,0,0.4),
+        inset 0 10px 18px rgba(255,255,255,0.1),
+        inset 0 -6px 12px rgba(0,0,0,0.25);
+      border: 2.5px solid #5c4518;
+    }
+
+    /* Царапины и потёртости */
+    .face-avers::before,
+    .face-revers::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        repeating-linear-gradient(
+          25deg,
+          transparent 0px,
+          transparent 18px,
+          rgba(0,0,0,0.03) 18px,
+          rgba(0,0,0,0.03) 19px
+        ),
+        repeating-linear-gradient(
+          -40deg,
+          transparent 0px,
+          transparent 27px,
+          rgba(255,255,255,0.025) 27px,
+          rgba(255,255,255,0.025) 28px
+        );
+      pointer-events: none;
+    }
+
+    /* Ободок и внутренние круги */
+    .face-avers::after,
+    .face-revers::after {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1.8px solid rgba(60, 40, 10, 0.5);
+      box-shadow:
+        inset 0 0 8px rgba(0,0,0,0.2),
+        0 0 0 5px rgba(60,40,10,0.15);
+      pointer-events: none;
+    }
+
+    .coin-text {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.18;
+      color: #2a1c08;
+      text-shadow:
+        0 1px 0 rgba(255,240,200,0.3),
+        0 -1px 1px rgba(0,0,0,0.25);
+      padding: 0 9px;
+      z-index: 2;
+      max-width: 86%;
+      letter-spacing: 0.2px;
+    }
+
+    .coin-year {
+      position: absolute;
+      bottom: 18px;
+      font-size: 0.48rem;
+      color: #3d2a10;
+      letter-spacing: 1.4px;
+      z-index: 2;
+      font-weight: 600;
+    }
+
+    /* Блик */
+    .shine {
+      position: absolute;
+      top: 10%;
+      left: 16%;
+      width: 38%;
+      height: 24%;
+      background: linear-gradient(140deg, rgba(255,255,255,0.38), transparent 70%);
+      border-radius: 50%;
+      filter: blur(1.5px);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Тень на столе */
+    .coin-shadow {
+      position: absolute;
+      left: 50%;
+      bottom: 98px;
+      width: 105px;
+      height: 20px;
+      margin-left: -52px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 72%);
+      border-radius: 50%;
+      opacity: 0;
+      z-index: 3;
+      transition: opacity 0.25s;
+      pointer-events: none;
+    }
+
+    .coin-shadow.visible {
+      opacity: 1;
+    }
+
+    /* ===== АНИМАЦИЯ — улучшенная физика отскоков ===== */
+    @keyframes fallAndSpin {
+      /* Старт высоко */
+      0% {
+        transform: translateX(0) translateY(-250px) scale(0.58) rotateX(28deg) rotateZ(-8deg) rotateY(0deg);
+      }
+      /* Разгон падения */
+      16% {
+        transform: translateX(4px) translateY(-130px) scale(0.78) rotateX(-22deg) rotateZ(4deg) rotateY(420deg);
+      }
+      /* Приближение */
+      32% {
+        transform: translateX(-2px) translateY(-20px) scale(0.96) rotateX(10deg) rotateZ(-3deg) rotateY(900deg);
+      }
+      /* 1-й контакт (сильный) */
+      40% {
+        transform: translateX(0) translateY(58px) scale(1.03) rotateX(0deg) rotateZ(0deg) rotateY(1100deg);
+      }
+      /* 1-й отскок — высокий */
+      48% {
+        transform: translateX(6px) translateY(6px) scale(1.0) rotateX(-16deg) rotateZ(5deg) rotateY(1280deg);
+      }
+      /* Падение после 1-го */
+      55% {
+        transform: translateX(3px) translateY(58px) scale(1.0) rotateX(3deg) rotateZ(-2deg) rotateY(1450deg);
+      }
+      /* 2-й отскок — средний */
+      62% {
+        transform: translateX(-4px) translateY(24px) scale(1.0) rotateX(-9deg) rotateZ(3deg) rotateY(1600deg);
+      }
+      /* Падение после 2-го */
+      68% {
+        transform: translateX(-1px) translateY(58px) scale(1.0) rotateX(2deg) rotateZ(-1deg) rotateY(1720deg);
+      }
+      /* 3-й отскок — маленький */
+      74% {
+        transform: translateX(2px) translateY(40px) scale(1.0) rotateX(-4deg) rotateZ(1deg) rotateY(1820deg);
+      }
+      /* Падение после 3-го */
+      79% {
+        transform: translateX(0) translateY(58px) scale(1.0) rotateX(1deg) rotateZ(0deg) rotateY(1900deg);
+      }
+      /* 4-й микро-отскок */
+      84% {
+        transform: translateX(0) translateY(50px) scale(1.0) rotateX(-1.5deg) rotateZ(0deg) rotateY(1960deg);
+      }
+      /* Финальная посадка */
+      88% {
+        transform: translateX(0) translateY(58px) scale(1.0) rotateX(0deg) rotateZ(0deg) rotateY(2000deg);
+      }
+      /* Докручивание на столе */
+      100% {
+        transform: translateX(0) translateY(58px) scale(1.0) rotateX(0deg) rotateZ(0deg) rotateY(var(--land-y));
+      }
+    }
+
+    .coin-wrapper.animating {
+      animation: fallAndSpin 3.2s cubic-bezier(0.18, 0.6, 0.28, 1) forwards;
+    }
+
+    /* ===== UI ===== */
+    .controls {
+      margin-top: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 11px;
+      z-index: 30;
+    }
+
+    .result {
+      min-height: 40px;
+      text-align: center;
+      font-size: 1.22rem;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+    }
+
+    .result.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .result.good { color: #8dff5a; }
+    .result.bad  { color: #ff6b6b; }
+
+    .flip-btn {
+      background: linear-gradient(145deg, #d4af37, #b8860b);
+      color: #1a1208;
+      border: none;
+      padding: 14px 44px;
+      font-size: 1.08rem;
+      font-weight: 700;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow:
+        0 6px 20px rgba(212, 175, 55, 0.32),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+
+    .flip-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .flip-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      font-size: 0.73rem;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🪙 Бросок монетки</h1>
+    <p>Старинная монета судьбы</p>
+  </div>
+
+  <div class="scene">
+    <div class="table"></div>
+    <div class="blum-emblem">
+      <div class="blum-logo">blum</div>
+      <div class="blum-sub">фурнитура</div>
+    </div>
+    <div class="coin-shadow" id="coinShadow"></div>
+
+    <div class="coin-wrapper" id="coinWrapper">
+      <div class="coin" id="coin">
+        <div class="coin-face face-avers">
+          <div class="shine"></div>
+          <div class="coin-text">зарплата<br>будет</div>
+          <div class="coin-year">★ 1891 ★</div>
+        </div>
+        <div class="coin-face face-revers">
+          <div class="shine"></div>
+          <div class="coin-text">хер<br>вам</div>
+          <div class="coin-year">★ 1891 ★</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="result" id="result"></div>
+    <button class="flip-btn" id="flipBtn">Бросить</button>
+    <div class="hint">Монета упадёт на аверс или реверс</div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const coinWrapper = document.getElementById('coinWrapper');
+    const flipBtn = document.getElementById('flipBtn');
+    const resultEl = document.getElementById('result');
+    const coinShadow = document.getElementById('coinShadow');
+
+    let isFlipping = false;
+    let audioCtx = null;
+
+    function getCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    /* ===== ЕСТЕСТВЕННЫЙ ЗВУК ПАДАЮЩЕЙ МОНЕТЫ =====
+       Синтез: воздух → удар (дерево + металл) → звон → короткое кручение по столу
+    */
+    function playNaturalCoinDrop() {
+      const ac = getCtx();
+      const now = ac.currentTime;
+
+      // 1. Лёгкий воздушный шум при падении
+      const noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.35, ac.sampleRate);
+      const noiseData = noiseBuf.getChannelData(0);
+      for (let i = 0; i < noiseData.length; i++) {
+        noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
+      }
+      const noise = ac.createBufferSource();
+      noise.buffer = noiseBuf;
+      const noiseFilter = ac.createBiquadFilter();
+      noiseFilter.type = 'highpass';
+      noiseFilter.frequency.value = 1200;
+      const noiseGain = ac.createGain();
+      noiseGain.gain.setValueAtTime(0.04, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ac.destination);
+      noise.start(now);
+      noise.stop(now + 0.35);
+
+      // Тайминги синхронизированы с новой анимацией (3.2s)
+      // 40% → 1.28s, 55% → 1.76s, 68% → 2.18s, 79% → 2.53s, 88% → 2.82s
+      const duration = 3.2;
+
+      function impact(time, volume, basePitch, isMain) {
+        // Тук дерева
+        const thump = ac.createOscillator();
+        const thumpG = ac.createGain();
+        thump.type = 'sine';
+        thump.frequency.setValueAtTime(basePitch * 0.17, time);
+        thump.frequency.exponentialRampToValueAtTime(32, time + 0.11);
+        thumpG.gain.setValueAtTime(volume * (isMain ? 0.52 : 0.32), time);
+        thumpG.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+        thump.connect(thumpG);
+        thumpG.connect(ac.destination);
+        thump.start(time);
+        thump.stop(time + 0.15);
+
+        // Металлический клик
+        const click = ac.createOscillator();
+        const clickG = ac.createGain();
+        click.type = 'triangle';
+        click.frequency.setValueAtTime(basePitch * 2.5, time);
+        click.frequency.exponentialRampToValueAtTime(basePitch * 0.65, time + 0.05);
+        clickG.gain.setValueAtTime(volume * 0.65, time);
+        clickG.gain.exponentialRampToValueAtTime(0.001, time + 0.055);
+        click.connect(clickG);
+        clickG.connect(ac.destination);
+        click.start(time);
+        click.stop(time + 0.055);
+
+        // Звон (только у более сильных ударов)
+        if (volume > 0.12) {
+          [1800, 2550, 3300].forEach((freq, i) => {
+            const o = ac.createOscillator();
+            const g = ac.createGain();
+            const f = ac.createBiquadFilter();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, time);
+            o.frequency.exponentialRampToValueAtTime(freq * 0.87, time + 0.55);
+            f.type = 'bandpass';
+            f.frequency.value = freq;
+            f.Q.value = 12;
+            g.gain.setValueAtTime(0, time);
+            g.gain.linearRampToValueAtTime(volume * (0.11 - i * 0.022), time + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.5 + i * 0.08);
+            o.connect(f);
+            f.connect(g);
+            g.connect(ac.destination);
+            o.start(time);
+            o.stop(time + 0.6);
+          });
+        }
+      }
+
+      const t1 = now + duration * 0.40; // первый сильный контакт
+      const t2 = now + duration * 0.55; // после 1-го отскока
+      const t3 = now + duration * 0.68; // после 2-го
+      const t4 = now + duration * 0.79; // после 3-го
+      const t5 = now + duration * 0.88; // финальная посадка
+
+      impact(t1, 0.40, 920, true);
+      impact(t2, 0.20, 780, false);
+      impact(t3, 0.12, 640, false);
+      impact(t4, 0.06, 510, false);
+      impact(t5, 0.03, 380, false);
+
+      // Кручение / скольжение по столу
+      const spinStart = t4 + 0.04;
+      for (let i = 0; i < 9; i++) {
+        const t = spinStart + i * 0.07;
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = 'triangle';
+        o.frequency.value = 1150 - i * 90 + (Math.random() * 35 - 17);
+        g.gain.setValueAtTime(Math.max(0.004, 0.06 - i * 0.006), t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        o.connect(g);
+        g.connect(ac.destination);
+        o.start(t);
+        o.stop(t + 0.065);
+      }
+    }
+
+    function playHappy() {
+      const ac = getCtx();
+      const now = ac.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = 'sine';
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.2, now + i * 0.1 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.32);
+        o.connect(g);
+        g.connect(ac.destination);
+        o.start(now + i * 0.1);
+        o.stop(now + i * 0.1 + 0.32);
+      });
+    }
+
+    function playSad() {
+      const ac = getCtx();
+      const now = ac.currentTime;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(260, now);
+      o.frequency.exponentialRampToValueAtTime(65, now + 0.7);
+      g.gain.setValueAtTime(0.16, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      const f = ac.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 360;
+      o.connect(f);
+      f.connect(g);
+      g.connect(ac.destination);
+      o.start(now);
+      o.stop(now + 0.8);
+    }
+
+    function flip() {
+      if (isFlipping) return;
+      isFlipping = true;
+      flipBtn.disabled = true;
+      resultEl.classList.remove('show', 'good', 'bad');
+      resultEl.textContent = '';
+      coinShadow.classList.remove('visible');
+
+      const isAvers = Math.random() < 0.5;
+      const baseTurns = 6;
+      const finalY = isAvers ? baseTurns * 360 : baseTurns * 360 + 180;
+
+      coinWrapper.style.setProperty('--land-y', finalY + 'deg');
+      coinWrapper.classList.remove('animating');
+      void coinWrapper.offsetWidth;
+      coinWrapper.classList.add('animating');
+
+      playNaturalCoinDrop();
+
+      // Тень появляется при первом касании
+      setTimeout(() => coinShadow.classList.add('visible'), 1250);
+
+      // Результат после полной остановки
+      setTimeout(() => {
+        if (isAvers) {
+          resultEl.textContent = '✨ Зарплата будет!';
+          resultEl.classList.add('show', 'good');
+          playHappy();
+        } else {
+          resultEl.textContent = '💀 Хер вам...';
+          resultEl.classList.add('show', 'bad');
+          playSad();
+        }
+        if (tg?.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred(isAvers ? 'success' : 'error');
+        }
+        isFlipping = false;
+        flipBtn.disabled = false;
+      }, 3200);
+    }
+
+    flipBtn.addEventListener('click', flip);
+    coinWrapper.addEventListener('click', flip);
+  </script>
+</body>
+</html>
